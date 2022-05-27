@@ -1,0 +1,134 @@
+// 1.声明式UI---对应命令式UI
+remember {mutableStateOf()}
+
+// 2.compose控件底层原理
+Text -- 底层原理：drawText()  drawTextRun()
+
+Image -- 底层原理：Canvas.drawBitmap()  Canvas.drawColor()
+ImageBitmap --位图
+ImageVector --矢量图：占用空间小，不怕放大
+
+另外：图片加载库 官方推荐Coil (Coroutine Image Loader) 面向协程，不是面向View系统的
+
+// 3.compose独立于android平台
+什么叫独立于平台：上层api与原生不会相关联--可以跨平台--AndroidStudio预览功能   // 桌面版(Mac/Windows/Linus)、Web
+
+// 4.传统Layout的Compose替代
+FrameLayout -- Box()
+LinearLayout -- Column()/Row()
+RelativeLayout --  Box()   Modifier控制位置关系
+ConstraintLayout(Jetpack) --  MotionLayout -- 技术团队已经在做支持：底层技术逻辑移植到compose
+RecyclerView(Jetpack) -- LazyColumn -- 没有Adapter,没有ViewHolder
+ScrollView -- Modifier.verticalScroll()/Modifier.horizontalScroll()
+ViewPager(Jetpack) -- Pager()
+TextView -- Text()
+EditText -- TextField()
+Button -- Button()
+...
+
+// 5.Modifier
+作用：
+--外观：设置大小、间距、背景、margi/padding
+--行为：点击事件、滚动、缩放、拖拽
+--处理用户输入，添加信息(如无障碍标签)
+
+常用函数：
+fillMaxHeight() -- 填充父项为它提供的最大的高度
+fillMaxWidth() -- 填充父项为它提供的最大的宽度
+fillMaxSize() -- 填充父项的宽高
+width() -- 宽度
+height() -- 高度
+size() -- 指定元素的首选宽度和高度
+requiredSize() -- 子级元素请求尺寸。如果指定的尺寸不符合来自布局父项的约束条件，则可能不会采用该尺寸。
+wrapContentSize() -- 根据子级元素的宽高来确定自身的宽度和高度，如果自身设置了最小宽高的话则会被忽略。当unbounded参数为true的时候，自身设置了最大宽度的话也会被忽略
+wrapContentWidth() -- 根据子级元素的宽度来确定自身的宽度，如果自身设置了最小宽度的话则会被忽略。当unbounded参数为true的时候，自身设置了最大宽度的话也会被忽略
+wrapContentHeight() -- 根据子级元素的高度来确定自身的高度，如果自身设置了最小高度的话则会被忽略。当unbounded参数为true的时候，自身设置了最大高度的话也会被忽略
+widthIn(最小宽度，最大宽度)() -- 设置自身的最小，最大宽度
+heightIn(最小高度，最大高度)() -- 设置自身的最小，最大高度
+sizeIn(最小宽度，最小高度，最大宽度，最大高度)() -- 设置自身的最小，最大宽高
+padding() -- 在元素周围留出空间。
+background() -- 设置背景
+clickable() -- 使可组合项响应用户输入，并显示涟漪。
+注意：修饰符的函数调用顺序会直接影响最终结果。Modifier 有顺序调用的巧妙设计，在compose中只有padding，没有margin
+
+// 6.Compose这么分包的原因
+解耦  扩展性
+material(3)     -- 使用 Material Design 3（下一代 Material Design）组件构建 Jetpack Compose 界面。Material 3 包括更新后的主题和组件，以及动态配色等 Material You 个性化功能，旨在与新的 Android 12 视觉风格和系统界面相得益彰。
+foundation      -- 使用现成可用的构建块编写 Jetpack Compose 应用，还可扩展 Foundation 以构建您自己的设计系统元素。
+animation       -- 在 Jetpack Compose 应用中构建动画，丰富用户的体验。
+ui              -- 与设备互动所需的 Compose UI 的基本组件，包括布局、绘图和输入。
+runtime         -- Compose 的编程模型和状态管理的基本构建块，以及 Compose 编译器插件针对的核心运行时。
+
+原则：
+1.依赖material(3) 就够了；大公司有UI全套设计规范，可能跳过material，直接依赖foundation
+2.如果需要ui-tooling,需要单独依赖（有预览功能，基本上都要依赖）
+3.如果需要material-icons-extended，必须专门依赖
+
+// 7.MutableState 和 mutableStateOf()
+刷新包括：组合(Composition)、布局、绘制
+组合过程：拼凑出界面实际内容
+
+为什么mutableStateOf()保存的值可以被订阅？
+ override var value: T
+        get() = next.readable(this).value  // next即是链表的头结点   遍历链表，找到一个最新的且可用的StateRecord   取值返回
+        set(value) = next.withCurrent {    //
+            if (!policy.equivalent(it.value, value)) { // 先比较值是否改变
+                next.overwritable(this, it) { this.value = value }
+            }
+        }
+MutableState -> StateObject -> StateRecord -> compose支持事务功能 -> 链表
+
+
+val name = mutableStateOf("Bob")               // 1
+val name by mutableStateOf("Bob")              // 2
+val name by remember { mutableStateOf("Bob") } // 3
+
+recompose scope 重组作用域
+
+注：mutableStateOf 必须使用 remember 嵌套才能在数据更改的时候重组界面
+remember只能写在@Composable函数作用域中  起到缓存作用  防止多次初始化
+remember(key....)
+
+// 8.无状态、状态提升、单向数据流
+State Hoisting 状态提升   尽量不往上提0
+TextField // 文字输入框(符合material Design的输入框)  material里面的    ---> BasicTextField 无martial风格
+
+Single Source of Truth  单一信息原则
+Compose:所有界面中会用到的数据
+
+// 9.列表如何触发刷新？
+mutableStateOf() 创建出的MutableState:判断的是是否重新赋值
+需要监听list或map集合内部的变化，如add一个元素之类的，需要用到如下：
+val names = mutableStateListOf()   mutableStateMapOf()
+
+// 10.重组的性能风险和智能优化
+recompose 重组的执行过程
+compose --> 自动更新 【问题：更新范围过大，超过需求，影响性能】--> 跳过没必要的更新
+通过Structual Equality 判断结构性相等(可靠的)，不相等才更新      不可靠的 --> 不判断，直接更新
+解决方案：@Stable
+-现在相等就永远相等
+-当公开属性改变的时候，通知用到这个属性的composition
+-公开属性需要全部是稳定/可靠属性
+
+不要轻易重写equals   ---> data class
+所有var属性用 by mutableStateOf()修饰
+
+// 11.compose之Modifier解析
+modifier工作原理
+live literals(常量更改实时更新) ---> 类似于flutter
+compose建议把modifier放在参数第一个
+LayoutModifier-->对界面元素尺寸位置做测量   (PaddingModifier)
+
+modifier有哪些
+
+// 12.compose动画
+
+// 13.compose自定义View
+
+// 14.compose与原生UI交互
+ComposeView
+AndroidView
+
+
+
+
